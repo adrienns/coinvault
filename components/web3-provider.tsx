@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { ethers } from "ethers"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -137,7 +137,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     [account, clearBalances, provider],
   )
 
-  const connectWallet = async () => {
+  const connectWallet = useCallback(async () => {
     if (typeof window !== "undefined" && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({
@@ -255,9 +255,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       })
     }
-  }
+  }, [hasShownConnectToast, refreshBalances, toast])
 
-  const disconnectWallet = () => {
+  const disconnectWallet = useCallback(() => {
     setAccount(null)
     setSigner(null)
     setProvider(null)
@@ -275,7 +275,52 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       title: "Wallet Disconnected",
       description: "Your wallet has been disconnected.",
     })
-  }
+  }, [clearBalances, toast])
+
+  const publicRefreshBalances = useCallback(() => refreshBalances(), [refreshBalances])
+
+  const contextValue = useMemo(
+    () => ({
+      account,
+      provider,
+      signer,
+      dETHContract,
+      sETHContract,
+      governanceContract,
+      stakingDashboardContract,
+      connectWallet,
+      disconnectWallet,
+      isConnected,
+      chainId,
+      ethBalance,
+      dETHBalance,
+      sETHBalance,
+      balancesLoading,
+      balancesError,
+      refreshBalances: publicRefreshBalances,
+      networkName,
+    }),
+    [
+      account,
+      provider,
+      signer,
+      dETHContract,
+      sETHContract,
+      governanceContract,
+      stakingDashboardContract,
+      connectWallet,
+      disconnectWallet,
+      isConnected,
+      chainId,
+      ethBalance,
+      dETHBalance,
+      sETHBalance,
+      balancesLoading,
+      balancesError,
+      publicRefreshBalances,
+      networkName,
+    ],
+  )
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.ethereum) {
@@ -357,28 +402,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isConnected, account, refreshBalances])
 
   return (
-    <Web3Context.Provider
-      value={{
-        account,
-        provider,
-        signer,
-        dETHContract,
-        sETHContract,
-        governanceContract,
-        stakingDashboardContract,
-        connectWallet,
-        disconnectWallet,
-        isConnected,
-        chainId,
-        ethBalance,
-        dETHBalance,
-        sETHBalance,
-        balancesLoading,
-        balancesError,
-        refreshBalances: () => refreshBalances(),
-        networkName,
-      }}
-    >
+    <Web3Context.Provider value={contextValue}>
       {children}
     </Web3Context.Provider>
   )
