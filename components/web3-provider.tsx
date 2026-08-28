@@ -47,6 +47,8 @@ type Web3ContextType = {
   ethBalance: string
   dETHBalance: string
   sETHBalance: string
+  balancesLoading: boolean
+  balancesError: string | null
   refreshBalances: () => Promise<void>
   networkName: string
 }
@@ -66,6 +68,8 @@ const Web3Context = createContext<Web3ContextType>({
   ethBalance: "0",
   dETHBalance: "0",
   sETHBalance: "0",
+  balancesLoading: false,
+  balancesError: null,
   refreshBalances: async () => {},
   networkName: "",
 })
@@ -87,6 +91,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const [ethBalance, setEthBalance] = useState("0")
   const [dETHBalance, setDETHBalance] = useState("0")
   const [sETHBalance, setSETHBalance] = useState("0")
+  const [balancesLoading, setBalancesLoading] = useState(false)
+  const [balancesError, setBalancesError] = useState<string | null>(null)
 
   const { toast } = useToast()
 
@@ -94,6 +100,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     setEthBalance("0")
     setDETHBalance("0")
     setSETHBalance("0")
+    setBalancesError(null)
+    setBalancesLoading(false)
   }, [])
 
   const refreshBalances = useCallback(
@@ -104,6 +112,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
+      setBalancesLoading(true)
+      setBalancesError(null)
+
       try {
         const balances = await fetchWalletBalances(walletAddress)
         setEthBalance(balances.eth)
@@ -111,6 +122,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         setSETHBalance(balances.sETH)
       } catch (error) {
         console.error("Error refreshing balances:", error)
+        setBalancesError("Unable to load balances. Please try again.")
+      } finally {
+        setBalancesLoading(false)
       }
     },
     [account, clearBalances],
@@ -353,6 +367,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         ethBalance,
         dETHBalance,
         sETHBalance,
+        balancesLoading,
+        balancesError,
         refreshBalances: () => refreshBalances(),
         networkName,
       }}

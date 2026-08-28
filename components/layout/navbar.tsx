@@ -29,12 +29,13 @@ export function Navbar() {
     ethBalance,
     dETHBalance,
     sETHBalance,
+    balancesLoading,
+    balancesError,
     refreshBalances,
   } = useWeb3()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const navigation = [
     { name: "Dashboard", href: "/" },
@@ -67,9 +68,7 @@ export function Navbar() {
   }
 
   const handleRefresh = async () => {
-    setIsRefreshing(true)
     await refreshBalances()
-    setTimeout(() => setIsRefreshing(false), 1000)
   }
 
   return (
@@ -117,9 +116,9 @@ export function Navbar() {
                             size="icon"
                             className="h-6 w-6 text-lightblue-500 hover:text-lightblue-700"
                             onClick={handleRefresh}
-                            disabled={isRefreshing}
+                            disabled={balancesLoading}
                           >
-                            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                            <RefreshCw className={`h-3.5 w-3.5 ${balancesLoading ? "animate-spin" : ""}`} />
                           </Button>
                         </div>
                       </TooltipTrigger>
@@ -179,7 +178,14 @@ export function Navbar() {
                           {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : ""}
                         </div>
 
-                        <WalletBalanceList eth={ethBalance} dETH={dETHBalance} sETH={sETHBalance} />
+                        <WalletBalanceList
+                          eth={ethBalance}
+                          dETH={dETHBalance}
+                          sETH={sETHBalance}
+                          isLoading={balancesLoading}
+                          error={balancesError}
+                          onRetry={handleRefresh}
+                        />
                       </div>
 
                       <DropdownMenuSeparator />
@@ -223,7 +229,14 @@ export function Navbar() {
                     <DropdownMenuLabel>Wallet Balances</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <div className="px-2 py-2">
-                      <WalletBalanceList eth={ethBalance} dETH={dETHBalance} sETH={sETHBalance} />
+                      <WalletBalanceList
+                        eth={ethBalance}
+                        dETH={dETHBalance}
+                        sETH={sETHBalance}
+                        isLoading={balancesLoading}
+                        error={balancesError}
+                        onRetry={handleRefresh}
+                      />
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={disconnectWallet} className="cursor-pointer text-red-500">
