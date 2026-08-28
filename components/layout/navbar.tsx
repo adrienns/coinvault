@@ -226,7 +226,12 @@ export function Navbar() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-80">
-                    <DropdownMenuLabel>Wallet Balances</DropdownMenuLabel>
+                    <DropdownMenuLabel className="flex items-center justify-between">
+                      <span>Connected Wallet</span>
+                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+                        Connected
+                      </Badge>
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <div className="px-2 py-2">
                       <WalletBalanceList
