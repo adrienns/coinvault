@@ -1,15 +1,32 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useWeb3 } from "@/components/web3-provider"
 import { ethers } from "ethers"
 import { Wallet, Layers, Users, BarChart3, ArrowDownToLine, ArrowUpFromLine, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import stakingDashboardAbi from "@/lib/abis/stakingDashboard.json"
+import { STAKING_DASHBOARD_ADDRESS } from "@/lib/web3/constants"
+import { createHoleskyProvider } from "@/lib/web3/provider"
+
+const emptyUserStats = {
+  stakedAmount: "0",
+  stakingTimestamp: "0",
+  rank: "0",
+  percentageOfTotal: "0",
+}
 
 export function StakingDashboard() {
-  const { stakingDashboardContract, isConnected, account, refreshBalances, ethBalance, dETHBalance, sETHBalance } =
-    useWeb3()
+  const {
+    stakingDashboardContract,
+    isConnected,
+    account,
+    connectWallet,
+    refreshBalances,
+    dETHBalance,
+    sETHBalance,
+  } = useWeb3()
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -19,63 +36,48 @@ export function StakingDashboard() {
     totalStakers: "0",
     averageStakeAmount: "0",
   })
-  const [userStats, setUserStats] = useState({
-    stakedAmount: "0",
-    stakingTimestamp: "0",
-    rank: "0",
-    percentageOfTotal: "0",
-  })
+  const [userStats, setUserStats] = useState(emptyUserStats)
 
-  const fetchData = async () => {
+  const getReadContract = useCallback(() => {
     if (stakingDashboardContract) {
-      try {
-        setLoading(true)
-
-        // Get staking overview
-        let overviewData
-        try {
-          overviewData = await stakingDashboardContract.getStakingOverview()
-        } catch (overviewErr) {
-          console.error("getStakingOverview reverted:", overviewErr)
-          try {
-            // Attempt to get low-level call result / revert data for diagnostics
-            const data = stakingDashboardContract.interface.encodeFunctionData("getStakingOverview", [])
-            const providerInstance = stakingDashboardContract.provider ?? stakingDashboardContract.signer?.provider
-            if (providerInstance && typeof providerInstance.call === "function") {
-              const callRes = await providerInstance.call({ to: (stakingDashboardContract as any).target ?? (stakingDashboardContract as any).address, data })
-              console.log("provider.call result (raw):", callRes)
-            } else {
-              console.warn("No provider available on contract for diagnostic provider.call. Skipping provider.call.")
-            }
-          } catch (callErr) {
-            console.error("provider.call diagnostic failed:", callErr)
-          }
-          throw overviewErr
-        }
-        setOverview({
-          totalETHDeposited: ethers.formatEther(overviewData.totalETHDeposited),
-          totalETHStaked: ethers.formatEther(overviewData.totalETHStaked),
-          totalStakers: overviewData.totalStakers.toString(),
-          averageStakeAmount: ethers.formatEther(overviewData.averageStakeAmount),
-        })
-
-        // Get user stats if connected
-        if (account) {
-          const userStatsData = await stakingDashboardContract.getStakerDetails(account)
-          setUserStats({
-            stakedAmount: ethers.formatEther(userStatsData.stakedAmount),
-            stakingTimestamp: new Date(Number(userStatsData.stakingTimestamp) * 1000).toLocaleDateString(),
-            rank: userStatsData.rank.toString(),
-            percentageOfTotal: (Number(userStatsData.percentageOfTotal) / 100).toFixed(2),
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching staking data:", error)
-      } finally {
-        setLoading(false)
-      }
+      return stakingDashboardContract
     }
-  }
+
+    const provider = createHoleskyProvider()
+    return new ethers.Contract(STAKING_DASHBOARD_ADDRESS, stakingDashboardAbi, provider)
+  }, [stakingDashboardContract])
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true)
+
+      const contract = getReadContract()
+      const overviewData = await contract.getStakingOverview()
+
+      setOverview({
+        totalETHDeposited: ethers.formatEther(overviewData.totalETHDeposited),
+        totalETHStaked: ethers.formatEther(overviewData.totalETHStaked),
+        totalStakers: overviewData.totalStakers.toString(),
+        averageStakeAmount: ethers.formatEther(overviewData.averageStakeAmount),
+      })
+
+      if (account && isConnected) {
+        const userStatsData = await contract.getStakerDetails(account)
+        setUserStats({
+          stakedAmount: ethers.formatEther(userStatsData.stakedAmount),
+          stakingTimestamp: new Date(Number(userStatsData.stakingTimestamp) * 1000).toLocaleDateString(),
+          rank: userStatsData.rank.toString(),
+          percentageOfTotal: (Number(userStatsData.percentageOfTotal) / 100).toFixed(2),
+        })
+      } else {
+        setUserStats(emptyUserStats)
+      }
+    } catch (error) {
+      console.error("Error fetching staking data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [account, getReadContract, isConnected])
 
   useEffect(() => {
     setMounted(true)
@@ -85,11 +87,13 @@ export function StakingDashboard() {
     if (mounted) {
       fetchData()
     }
-  }, [stakingDashboardContract, account, isConnected, mounted])
+  }, [fetchData, mounted])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await refreshBalances()
+    if (isConnected) {
+      await refreshBalances()
+    }
     await fetchData()
     setTimeout(() => setIsRefreshing(false), 1000)
   }
@@ -121,8 +125,24 @@ export function StakingDashboard() {
             <h3 className="text-sm font-medium text-lightblue-700">Available Balance</h3>
             <Wallet className="h-5 w-5 text-lightblue-500" />
           </div>
-          <div className="text-2xl font-bold text-lightblue-950">{Number.parseFloat(dETHBalance).toFixed(4)}</div>
-          <div className="text-sm font-medium text-lightblue-600">dETH</div>
+          {isConnected ? (
+            <>
+              <div className="text-2xl font-bold text-lightblue-950">{Number.parseFloat(dETHBalance).toFixed(4)}</div>
+              <div className="text-sm font-medium text-lightblue-600">dETH</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold text-lightblue-400">—</div>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-sm font-medium text-lightblue-600"
+                onClick={connectWallet}
+              >
+                Connect wallet to view
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="stat-card">
@@ -130,8 +150,24 @@ export function StakingDashboard() {
             <h3 className="text-sm font-medium text-lightblue-700">Staked Balance</h3>
             <Layers className="h-5 w-5 text-lightblue-500" />
           </div>
-          <div className="text-2xl font-bold text-lightblue-950">{Number.parseFloat(sETHBalance).toFixed(4)}</div>
-          <div className="text-sm font-medium text-lightblue-600">sETH</div>
+          {isConnected ? (
+            <>
+              <div className="text-2xl font-bold text-lightblue-950">{Number.parseFloat(sETHBalance).toFixed(4)}</div>
+              <div className="text-sm font-medium text-lightblue-600">sETH</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold text-lightblue-400">—</div>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-sm font-medium text-lightblue-600"
+                onClick={connectWallet}
+              >
+                Connect wallet to view
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="stat-card">
