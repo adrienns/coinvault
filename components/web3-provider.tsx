@@ -10,6 +10,7 @@ import sETHAbi from "@/lib/abis/sETH.json"
 import governanceAbi from "@/lib/abis/governance.json"
 import stakingDashboardAbi from "@/lib/abis/stakingDashboard.json"
 import { fetchWalletBalances } from "@/lib/web3/balances"
+import { createHoleskyProvider } from "@/lib/web3/provider"
 import {
   DETH_ADDRESS,
   GOVERNANCE_ADDRESS,
@@ -105,10 +106,16 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const refreshBalances = useCallback(
-    async (address?: string) => {
+    async (address?: string, rpcProvider?: ethers.JsonRpcProvider) => {
       const walletAddress = address ?? account
+      const activeProvider = rpcProvider ?? provider
+
       if (!walletAddress) {
         clearBalances()
+        return
+      }
+
+      if (!activeProvider) {
         return
       }
 
@@ -116,7 +123,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       setBalancesError(null)
 
       try {
-        const balances = await fetchWalletBalances(walletAddress)
+        const balances = await fetchWalletBalances(walletAddress, activeProvider)
         setEthBalance(balances.eth)
         setDETHBalance(balances.dETH)
         setSETHBalance(balances.sETH)
@@ -127,7 +134,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         setBalancesLoading(false)
       }
     },
-    [account, clearBalances],
+    [account, clearBalances, provider],
   )
 
   const connectWallet = async () => {
@@ -174,7 +181,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const directProvider = new ethers.JsonRpcProvider(HOLESKY_RPC_URL)
+        const directProvider = createHoleskyProvider()
 
         try {
           const stakingCode = await directProvider.getCode(STAKING_DASHBOARD_ADDRESS)
@@ -193,14 +200,13 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const browserProvider = new ethers.BrowserProvider(window.ethereum)
         const web3Signer = await browserProvider.getSigner()
-        const network = await directProvider.getNetwork()
 
         setNetworkName("Connected")
         setAccount(userAddress)
         setProvider(directProvider)
         setSigner(web3Signer)
         setIsConnected(true)
-        setChainId(Number(network.chainId))
+        setChainId(HOLESKY_CHAIN_ID)
 
         try {
           const dETH = new ethers.Contract(DETH_ADDRESS, dETHAbi, web3Signer)
@@ -225,7 +231,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
           })
         }
 
-        await refreshBalances(userAddress)
+        await refreshBalances(userAddress, directProvider)
 
         if (!hasShownConnectToast) {
           toast({

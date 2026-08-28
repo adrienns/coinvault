@@ -2,11 +2,12 @@ import { ethers } from "ethers"
 import dETHAbi from "@/lib/abis/dETH.json"
 import sETHAbi from "@/lib/abis/sETH.json"
 import type { WalletBalances } from "@/types/wallet"
-import { DETH_ADDRESS, HOLESKY_RPC_URL, SETH_ADDRESS } from "@/lib/web3/constants"
+import { DETH_ADDRESS, SETH_ADDRESS } from "@/lib/web3/constants"
 
-export async function fetchWalletBalances(address: string): Promise<WalletBalances> {
-  const provider = new ethers.JsonRpcProvider(HOLESKY_RPC_URL)
-
+export async function fetchWalletBalances(
+  address: string,
+  provider: ethers.JsonRpcProvider,
+): Promise<WalletBalances> {
   const [ethBalance, dETHBalance, sETHBalance] = await Promise.all([
     provider.getBalance(address),
     new ethers.Contract(DETH_ADDRESS, dETHAbi, provider).balanceOf(address),
