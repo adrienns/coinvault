@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { CoinVaultLogo } from "@/components/CoinVault-logo"
+import { WalletBalanceList } from "@/components/wallet/wallet-balance-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function Navbar() {
@@ -25,7 +26,9 @@ export function Navbar() {
     connectWallet,
     disconnectWallet,
     isConnected,
-    networkName,
+    ethBalance,
+    dETHBalance,
+    sETHBalance,
     refreshBalances,
   } = useWeb3()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -54,10 +57,6 @@ export function Navbar() {
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
-
-  const formatBalance = (balance: string) => {
-    return Number.parseFloat(balance).toFixed(4)
-  }
 
   const copyAddress = () => {
     if (account) {
@@ -113,7 +112,6 @@ export function Navbar() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="hidden lg:flex items-center space-x-3 bg-lightblue-50 px-4 py-2 rounded-lg">
-                          
                           <Button
                             variant="ghost"
                             size="icon"
@@ -146,7 +144,7 @@ export function Navbar() {
                         </div>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-72">
+                    <DropdownMenuContent align="end" className="w-80">
                       <DropdownMenuLabel className="flex items-center justify-between">
                         <span>Connected Wallet</span>
                         <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
@@ -181,7 +179,7 @@ export function Navbar() {
                           {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : ""}
                         </div>
 
-                      
+                        <WalletBalanceList eth={ethBalance} dETH={dETHBalance} sETH={sETHBalance} />
                       </div>
 
                       <DropdownMenuSeparator />
@@ -221,9 +219,12 @@ export function Navbar() {
                       </Badge>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align="end" className="w-80">
                     <DropdownMenuLabel>Wallet Balances</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <div className="px-2 py-2">
+                      <WalletBalanceList eth={ethBalance} dETH={dETHBalance} sETH={sETHBalance} />
+                    </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={disconnectWallet} className="cursor-pointer text-red-500">
                       <LogOut className="mr-2 h-4 w-4" />
